@@ -9,28 +9,28 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 // Define five locations with coordinates, images, addresses, and descriptions
 const locations = [
     {
-        coords: [56.1567, 10.2108], // Aarhus Cathedral (approximate)
+        coords: [56.157570948453696, 10.208216412543132], 
         image: 'images/storetorv.jpg',
         address: 'Store Torv 1, 8000 Aarhus',
-        text: 'Aarhus Cathedral, a historic landmark from the 12th century.'
+        text: 'Store Torv'
     },
     {
-        coords: [56.1531, 10.2048], // ARoS Art Museum (approximate)
+        coords: [56.15881351931754, 10.21551008185272], 
         image: 'images/navitas.jpg',
-        address: 'Banegårdspladsen 1, 8000 Aarhus',
-        text: 'ARoS Art Museum, known for its iconic rainbow panorama.'
+        address: 'Inge Lehmanns Gade 10, 8000 Aarhus',
+        text: 'Navitas'
     },
     {
-        coords: [56.1591, 10.2017], // The Old Town (approximate)
+        coords: [56.15800939739154, 10.208610926034227], 
         image: 'images/pv.jpg',
-        address: 'Vestergade 27, 8000 Aarhus',
-        text: 'The Old Town, an open-air museum of Danish history.'
+        address: 'Pustervig Rosensgade 21. Aarhus 8000',
+        text: 'Restaurant Pustevig'
     },
     {
-        coords: [56.1366, 10.2133], // Marselisborg Palace (approximate)
+        coords: [56.15607550916232, 10.200410394223178], 
         image: 'images/moelleparken.jpg',
-        address: 'Kongevejen 100, 8000 Aarhus',
-        text: 'Marselisborg Palace, the summer residence of the Danish royal family.'
+        address: 'Møllegade 1, 8000 Aarhus',
+        text: 'Mølleparken'
     }
 ];
 
