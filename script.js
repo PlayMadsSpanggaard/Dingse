@@ -31,12 +31,6 @@ const locations = [
         image: 'images/moelleparken.jpg',
         address: 'Kongevejen 100, 8000 Aarhus',
         text: 'Marselisborg Palace, the summer residence of the Danish royal family.'
-    },
-    {
-        coords: [56.1701, 10.1994], // Aarhus Botanical Garden (approximate)
-        image: 'images/[fifth-image].jpg', // Replace [fifth-image] with the actual file name
-        address: 'Peter Holms Vej, 8000 Aarhus',
-        text: 'Aarhus Botanical Garden, a serene green space.'
     }
 ];
 
