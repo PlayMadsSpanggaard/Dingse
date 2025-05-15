@@ -9,32 +9,32 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 // Define five locations with coordinates, images, addresses, and descriptions
 const locations = [
     {
-        coords: [56.1567, 10.2108],
-        image: 'images/aarhus_cathedral.jpg',
+        coords: [56.1567, 10.2108], // Aarhus Cathedral (approximate)
+        image: 'images/storetorv.jpg',
         address: 'Store Torv 1, 8000 Aarhus',
         text: 'Aarhus Cathedral, a historic landmark from the 12th century.'
     },
     {
-        coords: [56.1531, 10.2048],
-        image: 'images/aroos.jpg',
+        coords: [56.1531, 10.2048], // ARoS Art Museum (approximate)
+        image: 'images/navitas.jpg',
         address: 'Banegårdspladsen 1, 8000 Aarhus',
         text: 'ARoS Art Museum, known for its iconic rainbow panorama.'
     },
     {
-        coords: [56.1591, 10.2017],
-        image: 'images/old_town.jpg',
+        coords: [56.1591, 10.2017], // The Old Town (approximate)
+        image: 'images/pv.jpg',
         address: 'Vestergade 27, 8000 Aarhus',
         text: 'The Old Town, an open-air museum of Danish history.'
     },
     {
-        coords: [56.1366, 10.2133],
-        image: 'images/marselisborg.jpg',
+        coords: [56.1366, 10.2133], // Marselisborg Palace (approximate)
+        image: 'images/moelleparken.jpg',
         address: 'Kongevejen 100, 8000 Aarhus',
         text: 'Marselisborg Palace, the summer residence of the Danish royal family.'
     },
     {
-        coords: [56.1701, 10.1994],
-        image: 'images/botanical_garden.jpg',
+        coords: [56.1701, 10.1994], // Aarhus Botanical Garden (approximate)
+        image: 'images/[fifth-image].jpg', // Replace [fifth-image] with the actual file name
         address: 'Peter Holms Vej, 8000 Aarhus',
         text: 'Aarhus Botanical Garden, a serene green space.'
     }
