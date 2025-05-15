@@ -2,17 +2,287 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aarhus Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aarhus Map Explorer</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.css" />
     <style>
-        #map { height: 100vh; width: 100%; }
-        .popup-content img { max-width: 150px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: manipulation;
+        }
+        
+        body {
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        
+        #map {
+            height: 100vh;
+            width: 100%;
+            z-index: 1;
+            touch-action: none;
+        }
+        
+        .title-bar {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            text-align: center;
+            max-width: 90%;
+        }
+        
+        .title-bar h1 {
+            font-size: 1.2rem;
+            color: #333;
+            margin: 0;
+        }
+        
+        /* New side panel for locations */
+        .locations-panel {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 1000;
+            width: 50px;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .locations-panel.expanded {
+            width: 300px;
+        }
+        
+        .panel-toggle {
+            width: 50px;
+            height: 50px;
+            background-color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+            z-index: 2;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .panel-toggle i {
+            color: #3498db;
+            font-size: 1.4rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .locations-panel.expanded .panel-toggle i.fa-list {
+            transform: rotate(90deg);
+        }
+        
+        .panel-content {
+            background-color: white;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+        
+        .locations-panel.expanded .panel-content {
+            max-height: 500px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .panel-header {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .panel-header h2 {
+            font-size: 1rem;
+            color: #333;
+            margin: 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .panel-header h2 i {
+            margin-right: 10px;
+            color: #3498db;
+        }
+        
+        .location-items {
+            overflow-y: auto;
+            max-height: calc(100vh - 200px);
+        }
+        
+        .location-item {
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .location-item:hover {
+            background-color: #f8f8f8;
+        }
+        
+        .location-item.active {
+            background-color: #e3f2fd;
+            border-left: 3px solid #3498db;
+        }
+        
+        .location-icon {
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+            background-color: #3498db;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 12px;
+        }
+        
+        .location-icon i {
+            color: white;
+            font-size: 1rem;
+        }
+        
+        .location-info {
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .location-info h3 {
+            font-size: 0.95rem;
+            color: #333;
+            margin: 0 0 3px 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .location-info p {
+            font-size: 0.8rem;
+            color: #666;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .leaflet-popup-content-wrapper {
+            border-radius: 10px;
+            padding: 0;
+            overflow: hidden;
+            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .leaflet-popup-content {
+            margin: 0;
+            width: 250px !important;
+        }
+        
+        .popup-content {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .popup-content img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+        
+        .popup-text {
+            padding: 15px;
+        }
+        
+        .popup-text h3 {
+            margin: 0 0 8px 0;
+            font-size: 1rem;
+            color: #333;
+        }
+        
+        .popup-text p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.4;
+        }
+        
+        .directions-button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            margin-top: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        
+        .directions-button:hover {
+            background-color: #2980b9;
+        }
+        
+        .directions-button i {
+            margin-right: 5px;
+        }
+        
+        @media (max-width: 600px) {
+            .title-bar h1 {
+                font-size: 1rem;
+            }
+            
+            .locations-panel.expanded {
+                width: 270px;
+            }
+        }
     </style>
 </head>
 <body>
+    <div class="title-bar">
+        <h1>Where to go?</h1>
+    </div>
+    
     <div id="map"></div>
+    
+    <div class="locations-panel" id="locations-panel">
+        <div class="panel-toggle" id="panel-toggle">
+            <i class="fas fa-list"></i>
+        </div>
+        <div class="panel-content">
+            <div class="panel-header">
+                <h2><i class="fas fa-map-marker-alt"></i> Aarhus Locations</h2>
+            </div>
+            <div class="location-items" id="location-items">
+                <!-- Location items will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+    
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
