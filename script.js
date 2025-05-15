@@ -99,7 +99,7 @@ document.getElementById('map').addEventListener('wheel', function(e) {
 const locations = [
     {
         coords: [56.157570948453696, 10.208216412543132], 
-        image: 'images/storetorv.jpg',
+        image: 'Images/storetorv.jpg',
         address: 'Store Torv 1, 8000 Aarhus',
         text: 'Store Torv',
         description: 'Historic town square in the heart of Aarhus, surrounded by beautiful architecture and lively atmosphere.',
@@ -107,7 +107,7 @@ const locations = [
     },
     {
         coords: [56.15881351931754, 10.21551008185272], 
-        image: 'images/navitas.jpg',
+        image: 'Images/navitas.jpg',
         address: 'Inge Lehmanns Gade 10, 8000 Aarhus',
         text: 'Navitas',
         description: 'Modern sustainable building housing Aarhus University\'s engineering programs and energy research facilities.',
@@ -115,7 +115,7 @@ const locations = [
     },
     {
         coords: [56.15800939739154, 10.208610926034227], 
-        image: 'images/pv.jpg',
+        image: 'Images/pv.jpg',
         address: 'Pustervig Rosensgade 21, 8000 Aarhus',
         text: 'Restaurant Pustevig',
         description: 'Popular restaurant offering a variety of delicious meals in a cozy atmosphere in central Aarhus.',
@@ -123,7 +123,7 @@ const locations = [
     },
     {
         coords: [56.15607550916232, 10.200410394223178], 
-        image: 'images/moelleparken.jpg',
+        image: 'Images/moelleparken.jpg',
         address: 'Møllegade 1, 8000 Aarhus',
         text: 'Mølleparken',
         description: 'Beautiful park next to the Aarhus River, offering green spaces and relaxation in the city center.',
