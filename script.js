@@ -253,8 +253,27 @@ map.setView(centerPoint, 14, { animate: false });
 
 // Create a bounds object that encompasses all markers
 const bounds = L.latLngBounds(locations.map(loc => loc.coords));
-// Adjust the map view to fit all markers with some padding
-map.fitBounds(bounds.pad(0.1), { animate: false });
+
+// Function to check if we're on mobile
+function isMobileDevice() {
+    return (window.innerWidth <= 768) || 
+           (typeof window.orientation !== 'undefined') || 
+           (navigator.userAgent.indexOf('Mobile') !== -1);
+}
+
+// Set initial view based on device type
+if (isMobileDevice()) {
+    // On mobile, use a slightly tighter view with more padding
+    map.fitBounds(bounds.pad(0.2), { 
+        animate: false,
+        // Add more padding on the top to account for the title bar
+        paddingTopLeft: [20, 60],
+        paddingBottomRight: [20, 20]
+    });
+} else {
+    // On desktop, fit all markers with standard padding
+    map.fitBounds(bounds.pad(0.1), { animate: false });
+}
 
 // Populate the location panel with items
 const locationItems = document.getElementById('location-items');
@@ -292,9 +311,12 @@ locations.forEach((location, index) => {
         // Close any open popups first to prevent flickering
         map.closePopup();
         
+        // Adjust animation timing for mobile
+        const animationDuration = isMobileDevice() ? 0.8 : 1.2;
+        
         // Fly to location with smooth animation and appropriate zoom level
         map.flyTo(location.coords, 17, {
-            duration: 1.2,
+            duration: animationDuration,
             easeLinearity: 0.25
         });
         
@@ -303,12 +325,21 @@ locations.forEach((location, index) => {
             markers[index].openPopup();
             // Reset processing flag
             locationItem.dataset.processing = 'false';
-        }, 1300);
+        }, isMobileDevice() ? 900 : 1300);
         
         // On mobile, close the panel after selecting a location
         if (window.innerWidth < 768) {
             document.getElementById('locations-panel').classList.remove('expanded');
         }
+    });
+    
+    // Add touch feedback for mobile
+    locationItem.addEventListener('touchstart', function() {
+        this.style.backgroundColor = '#f8f8f8';
+    });
+    
+    locationItem.addEventListener('touchend', function() {
+        this.style.backgroundColor = '';
     });
     
     locationItems.appendChild(locationItem);
@@ -318,8 +349,22 @@ locations.forEach((location, index) => {
 const locationsPanel = document.getElementById('locations-panel');
 const panelToggle = document.getElementById('panel-toggle');
 
+// Make panel toggle more responsive on mobile
 panelToggle.addEventListener('click', () => {
     locationsPanel.classList.toggle('expanded');
+});
+
+// Add touch-specific handling for better mobile experience
+panelToggle.addEventListener('touchstart', function(e) {
+    // Add visual feedback for touch
+    this.style.backgroundColor = '#f0f0f0';
+});
+
+panelToggle.addEventListener('touchend', function(e) {
+    // Reset visual feedback
+    this.style.backgroundColor = '';
+    // Prevent any weird touch behaviors
+    e.preventDefault();
 });
 
 // On initial load, expand the panel after a short delay on larger screens
@@ -353,31 +398,42 @@ L.control.locate({
 
 // Handle responsiveness
 function handleResize() {
-    if (window.innerWidth < 600) {
-        // If we have an active location, stay focused on it
+    // Close panel on small screens when resizing
+    if (window.innerWidth < 768) {
+        locationsPanel.classList.remove('expanded');
+        
+        // If we have an active location, maintain focus on it
         if (activeLocationItem) {
             const index = parseInt(activeLocationItem.getAttribute('data-index'));
             if (!isNaN(index) && index >= 0 && index < locations.length) {
-                // Keep focus on the active location but with slightly wider view
-                map.setView(locations[index].coords, 16, { animate: false });
-            } else {
-                // Fallback to a general view of the area
-                map.setView([56.1575, 10.2085], 14, { animate: false });
+                // Adjust the view with appropriate zoom
+                map.setView(locations[index].coords, 17, { animate: false });
             }
         } else {
-            // No active location, use default view
-            map.setView([56.1575, 10.2085], 14, { animate: false });
+            // If no active location, adjust overview fit to account for screen orientation
+            map.fitBounds(bounds.pad(0.2), { 
+                animate: false,
+                // Add more padding on the top for the title bar
+                paddingTopLeft: [20, 60],
+                paddingBottomRight: [20, 20]
+            });
         }
-        
-        // Close panel on small screens when resizing
-        locationsPanel.classList.remove('expanded');
     } else {
-        // On larger screens, maintain current view
+        // On larger screens, if no location is selected, ensure proper bounds
+        if (!activeLocationItem) {
+            map.fitBounds(bounds.pad(0.1), { animate: false });
+        }
     }
 }
 
 window.addEventListener('resize', handleResize);
-handleResize(); // Call on initial load
+// Handle orientation change on mobile
+window.addEventListener('orientationchange', function() {
+    // Small delay to ensure dimensions have updated
+    setTimeout(handleResize, 200);
+});
+// Call on initial load
+handleResize();
 
 // Add some animation to markers to highlight them without moving them
 function pulseMarkers() {
@@ -435,8 +491,18 @@ map.on('popupopen', function(e) {
 const returnToOverviewBtn = L.control({position: 'bottomleft'});
 returnToOverviewBtn.onAdd = function(map) {
     const div = L.DomUtil.create('div', 'overview-button');
-    div.innerHTML = '<button style="padding: 8px 12px; background-color: white; border: none; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); cursor: pointer; font-family: \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif; display: flex; align-items: center;"><i class="fas fa-map" style="margin-right: 6px; color: #3498db;"></i>Overview</button>';
+    div.innerHTML = '<button style="padding: 10px 14px; background-color: white; border: none; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); cursor: pointer; font-family: \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif; display: flex; align-items: center; font-size: 14px; font-weight: 500; min-width: 40px; min-height: 40px; touch-action: manipulation;"><i class="fas fa-map" style="margin-right: 6px; color: #3498db; font-size: 16px;"></i>Overview</button>';
     div.style.margin = '10px';
+    
+    // Add active state styles for better mobile touch feedback
+    const button = div.querySelector('button');
+    button.addEventListener('touchstart', function() {
+        this.style.backgroundColor = '#f0f0f0';
+    });
+    button.addEventListener('touchend', function() {
+        this.style.backgroundColor = 'white';
+    });
+    
     div.onclick = function() {
         // Clear any active location in the panel
         if (activeLocationItem) {
