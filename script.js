@@ -9,7 +9,15 @@ const map = L.map('map', {
     doubleClickZoom: true,     // Disable double click zoom to prevent accidental browser zoom
     wheelDebounceTime: 100,    // Debounce wheel events
     wheelPxPerZoomLevel: 100   // More scrolling needed per zoom level
-}).setView([56.1575, 10.2085], 15);  // Center on Store Torv/PV area with closer zoom
+});  // Don't set initial view here
+
+// Track if user has manually interacted with the map
+let userHasInteractedWithMap = false;
+
+// Listen for user interactions with the map
+map.on('drag zoomstart', function() {
+    userHasInteractedWithMap = true;
+});
 
 // Add attribution control in a better position
 L.control.attribution({
@@ -174,26 +182,79 @@ locations.forEach(location => {
     
     // Add event listeners for popup open/close to handle zoom
     marker.on('popupopen', function(e) {
-        // Zoom in to location when popup is opened
-        map.setView(location.coords, 17, {
-            animate: true,
-            duration: 1
-        });
-    });
-    
-    // Zoom out when popup is closed to show more context
-    marker.on('popupclose', function(e) {
-        // Only zoom out if we're currently zoomed in close to this marker
-        if (map.getZoom() > 15 && map.distance(map.getCenter(), location.coords) < 1000) {
-            map.setView(map.getCenter(), 14, {
-                animate: true,
-                duration: 1
+        // Only zoom if we're not already processing a location panel click
+        const processingClick = document.querySelector('.location-item[data-processing="true"]');
+        if (processingClick) return;
+        
+        // Use pan instead of setView for smoother transition when clicking directly on marker
+        if (map.getZoom() < 17) {
+            map.flyTo(location.coords, 17, {
+                duration: 1,
+                easeLinearity: 0.25
+            });
+        } else {
+            map.panTo(location.coords, {
+                duration: 0.8,
+                easeLinearity: 0.5
             });
         }
     });
     
+    // Zoom out when popup is closed to show more context
+    marker.on('popupclose', function(e) {
+        // Do nothing if we're processing a location panel click
+        const processingClick = document.querySelector('.location-item[data-processing="true"]');
+        if (processingClick) return;
+        
+        // Check if user manually closed a popup (e.g., by clicking the X)
+        // We only want to zoom out if the user is intentionally closing a popup,
+        // not when they're navigating between locations
+        
+        // We'll disable the auto zoom-out behavior entirely to prevent the map
+        // from zooming out when clicking between locations
+        
+        // If you still want this functionality, you would need to track if this
+        // popup close was triggered by opening another popup, which is complex
+        
+        // Commented out to maintain zoom level when navigating between locations
+        /*
+        if (map.getZoom() > 15 && map.distance(map.getCenter(), location.coords) < 1000) {
+            map.flyTo(map.getCenter(), 14, {
+                animate: true,
+                duration: 1
+            });
+        }
+        */
+    });
+    
     markers.push(marker);
 });
+
+// Calculate the center point of all locations for better initial positioning
+function calculateCenterPoint(locations) {
+    if (!locations || locations.length === 0) {
+        return [56.1575, 10.2085]; // Default center of Aarhus
+    }
+    
+    let totalLat = 0;
+    let totalLng = 0;
+    
+    locations.forEach(location => {
+        totalLat += location.coords[0];
+        totalLng += location.coords[1];
+    });
+    
+    return [totalLat / locations.length, totalLng / locations.length];
+}
+
+// Set initial view to show an overview of all locations
+const centerPoint = calculateCenterPoint(locations);
+map.setView(centerPoint, 14, { animate: false });
+
+// Create a bounds object that encompasses all markers
+const bounds = L.latLngBounds(locations.map(loc => loc.coords));
+// Adjust the map view to fit all markers with some padding
+map.fitBounds(bounds.pad(0.1), { animate: false });
 
 // Populate the location panel with items
 const locationItems = document.getElementById('location-items');
@@ -215,6 +276,10 @@ locations.forEach((location, index) => {
     
     // Add click event to fly to location, open popup and highlight the selected item
     locationItem.addEventListener('click', () => {
+        // Prevent multiple rapid clicks by adding a small debounce
+        if (locationItem.dataset.processing === 'true') return;
+        locationItem.dataset.processing = 'true';
+        
         // Remove active class from previous item
         if (activeLocationItem) {
             activeLocationItem.classList.remove('active');
@@ -224,16 +289,21 @@ locations.forEach((location, index) => {
         locationItem.classList.add('active');
         activeLocationItem = locationItem;
         
+        // Close any open popups first to prevent flickering
+        map.closePopup();
+        
         // Fly to location with smooth animation and appropriate zoom level
         map.flyTo(location.coords, 17, {
-            duration: 1.5,
+            duration: 1.2,
             easeLinearity: 0.25
         });
         
         // Open popup after a short delay to let the animation finish
         setTimeout(() => {
             markers[index].openPopup();
-        }, 1500);
+            // Reset processing flag
+            locationItem.dataset.processing = 'false';
+        }, 1300);
         
         // On mobile, close the panel after selecting a location
         if (window.innerWidth < 768) {
@@ -258,14 +328,8 @@ setTimeout(() => {
         locationsPanel.classList.add('expanded');
     }
     
-    // Auto-select the first location after map loads
-    setTimeout(() => {
-        // Get the first location item and trigger a click to focus on it
-        const firstLocationItem = document.querySelector('.location-item');
-        if (firstLocationItem) {
-            firstLocationItem.click();
-        }
-    }, 500);
+    // Don't auto-highlight any location initially
+    // Just leave the panel open with no selection
 }, 1000);
 
 // Function to open directions in Google Maps
@@ -290,10 +354,25 @@ L.control.locate({
 // Handle responsiveness
 function handleResize() {
     if (window.innerWidth < 600) {
-        map.setView([56.1575, 10.2085], 14);  // Center on central Aarhus area with appropriate zoom
+        // If we have an active location, stay focused on it
+        if (activeLocationItem) {
+            const index = parseInt(activeLocationItem.getAttribute('data-index'));
+            if (!isNaN(index) && index >= 0 && index < locations.length) {
+                // Keep focus on the active location but with slightly wider view
+                map.setView(locations[index].coords, 16, { animate: false });
+            } else {
+                // Fallback to a general view of the area
+                map.setView([56.1575, 10.2085], 14, { animate: false });
+            }
+        } else {
+            // No active location, use default view
+            map.setView([56.1575, 10.2085], 14, { animate: false });
+        }
         
         // Close panel on small screens when resizing
         locationsPanel.classList.remove('expanded');
+    } else {
+        // On larger screens, maintain current view
     }
 }
 
@@ -338,11 +417,43 @@ map.on('popupopen', function(e) {
     // Get the coordinates of the opened popup
     const coordinates = e.popup._latlng;
     
-    // If not already at a good zoom level, set the view
+    // Don't interfere if a location panel click is in progress
+    const processingClick = document.querySelector('.location-item[data-processing="true"]');
+    if (processingClick) return;
+    
+    // If not already at a good zoom level, adjust the view
     if (map.getZoom() < 16) {
-        map.setView(coordinates, 17, {
-            animate: true,
-            duration: 1
+        // Use flyTo for smoother animation when zoom level needs to change significantly
+        map.flyTo(coordinates, 17, {
+            duration: 1,
+            easeLinearity: 0.25
         });
     }
 });
+
+// Add a button to return to overview
+const returnToOverviewBtn = L.control({position: 'bottomleft'});
+returnToOverviewBtn.onAdd = function(map) {
+    const div = L.DomUtil.create('div', 'overview-button');
+    div.innerHTML = '<button style="padding: 8px 12px; background-color: white; border: none; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); cursor: pointer; font-family: \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif; display: flex; align-items: center;"><i class="fas fa-map" style="margin-right: 6px; color: #3498db;"></i>Overview</button>';
+    div.style.margin = '10px';
+    div.onclick = function() {
+        // Clear any active location in the panel
+        if (activeLocationItem) {
+            activeLocationItem.classList.remove('active');
+            activeLocationItem = null;
+        }
+        
+        // Close any open popups
+        map.closePopup();
+        
+        // Fit the map to show all markers
+        map.fitBounds(bounds.pad(0.1), {
+            animate: true,
+            duration: 1,
+            easeLinearity: 0.5
+        });
+    };
+    return div;
+};
+returnToOverviewBtn.addTo(map);
