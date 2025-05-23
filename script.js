@@ -9,7 +9,7 @@ const map = L.map('map', {
     doubleClickZoom: true,     // Disable double click zoom to prevent accidental browser zoom
     wheelDebounceTime: 100,    // Debounce wheel events
     wheelPxPerZoomLevel: 100   // More scrolling needed per zoom level
-}).setView([56.1629, 10.2039], 14);
+}).setView([56.1575, 10.2085], 15);  // Center on Store Torv/PV area with closer zoom
 
 // Add attribution control in a better position
 L.control.attribution({
@@ -152,7 +152,11 @@ locations.forEach(location => {
     }).addTo(map);
     
     // Create enhanced popup content
-    marker.bindPopup(`
+    const popup = L.popup({
+        closeButton: true,
+        autoClose: true,
+        className: 'custom-popup'
+    }).setContent(`
         <div class="popup-content">
             <img src="${location.image}" alt="${location.text}">
             <div class="popup-text">
@@ -165,6 +169,28 @@ locations.forEach(location => {
             </div>
         </div>
     `);
+    
+    marker.bindPopup(popup);
+    
+    // Add event listeners for popup open/close to handle zoom
+    marker.on('popupopen', function(e) {
+        // Zoom in to location when popup is opened
+        map.setView(location.coords, 17, {
+            animate: true,
+            duration: 1
+        });
+    });
+    
+    // Zoom out when popup is closed to show more context
+    marker.on('popupclose', function(e) {
+        // Only zoom out if we're currently zoomed in close to this marker
+        if (map.getZoom() > 15 && map.distance(map.getCenter(), location.coords) < 1000) {
+            map.setView(map.getCenter(), 14, {
+                animate: true,
+                duration: 1
+            });
+        }
+    });
     
     markers.push(marker);
 });
@@ -198,7 +224,7 @@ locations.forEach((location, index) => {
         locationItem.classList.add('active');
         activeLocationItem = locationItem;
         
-        // Fly to location with smooth animation
+        // Fly to location with smooth animation and appropriate zoom level
         map.flyTo(location.coords, 17, {
             duration: 1.5,
             easeLinearity: 0.25
@@ -231,6 +257,15 @@ setTimeout(() => {
     if (window.innerWidth >= 768) {
         locationsPanel.classList.add('expanded');
     }
+    
+    // Auto-select the first location after map loads
+    setTimeout(() => {
+        // Get the first location item and trigger a click to focus on it
+        const firstLocationItem = document.querySelector('.location-item');
+        if (firstLocationItem) {
+            firstLocationItem.click();
+        }
+    }, 500);
 }, 1000);
 
 // Function to open directions in Google Maps
@@ -255,7 +290,7 @@ L.control.locate({
 // Handle responsiveness
 function handleResize() {
     if (window.innerWidth < 600) {
-        map.setZoom(13);
+        map.setView([56.1575, 10.2085], 14);  // Center on central Aarhus area with appropriate zoom
         
         // Close panel on small screens when resizing
         locationsPanel.classList.remove('expanded');
@@ -297,3 +332,17 @@ function pulseMarkers() {
 
 // Start the marker pulsing effect after a delay
 setTimeout(pulseMarkers, 3000);
+
+// Add map-wide event listener for popups
+map.on('popupopen', function(e) {
+    // Get the coordinates of the opened popup
+    const coordinates = e.popup._latlng;
+    
+    // If not already at a good zoom level, set the view
+    if (map.getZoom() < 16) {
+        map.setView(coordinates, 17, {
+            animate: true,
+            duration: 1
+        });
+    }
+});
