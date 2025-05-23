@@ -102,7 +102,7 @@ const locations = [
         image: 'Images/storetorv.jpg',
         address: 'Store Torv 1, 8000 Aarhus',
         text: 'Store Torv',
-        description: 'Historic town square in the heart of Aarhus, surrounded by beautiful architecture and lively atmosphere.',
+        description: 'Store Torv i Aarhus er et hyggeligt og centralt sted at nyde sin frokost. Pladsen ligger lige ved Domkirken og midt i det historiske kvarter, omgivet af smukke bygninger og brostensbelagte gader. Her er bænke og god stemning – perfekt til en pause i solen med udsigt til både byliv og kulturarv. Placeringen gør det nemt at kombinere frokosten med sightseeing eller shopping.',
         icon: 'landmark'
     },
     {
@@ -110,15 +110,15 @@ const locations = [
         image: 'Images/navitas.jpg',
         address: 'Inge Lehmanns Gade 10, 8000 Aarhus',
         text: 'Navitas',
-        description: 'Modern sustainable building housing Aarhus University\'s engineering programs and energy research facilities.',
+        description: 'Trappen ved Navitas er et oplagt frokost spot. Den ligger direkte ved havnefronten og byder på en fantastisk udsigt over Aarhus Bugt, Dokk1 og byens skyline. Her kan man tage en pause, nyde solen og mærke stemningen ved vandet – kun få minutters gang fra centrum. Et perfekt sted til billeder og en rolig stund midt i byen.',
         icon: 'building'
     },
     {
         coords: [56.15800939739154, 10.208610926034227], 
         image: 'Images/pv.jpg',
         address: 'Pustervig Rosensgade 21, 8000 Aarhus',
-        text: 'Restaurant Pustevig',
-        description: 'Popular restaurant offering a variety of delicious meals in a cozy atmosphere in central Aarhus.',
+        text: 'PV',
+        description: 'PV på Pustervig Torv er et skønt frokostspot – midt i byen og kun et stenkast fra Dingse. Her kan du nyde din sandwich fra os ved borde og stole i solen. Køber du drikkevarer hos PV, er du velkommen til at spise medbragt fra Dingse – perfekt kombi af mad, drikke og bystemning',
         icon: 'utensils'
     },
     {
@@ -126,7 +126,7 @@ const locations = [
         image: 'Images/moelleparken.jpg',
         address: 'Møllegade 1, 8000 Aarhus',
         text: 'Mølleparken',
-        description: 'Beautiful park next to the Aarhus River, offering green spaces and relaxation in the city center.',
+        description: 'Mølleparken er et ideelt sted for de der ønsker at nyde en frokost i grønne omgivelser, midt i byen. Her kan du sætte dig på græsset, ved bordene eller på trappen ned mod åen og nyde udsigten over åen og de omkringliggende historiske bygninger. Parken ligger desuden tæt på attraktioner som ARoS Kunstmuseum og Latinerkvarteret.',
         icon: 'tree'
     }
 ];
