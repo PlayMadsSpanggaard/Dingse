@@ -6,10 +6,14 @@ const map = L.map('map', {
     maxZoom: 18,               // Prevent excessive zooming
     zoomSnap: 0.5,             // Allow for smoother zoom levels
     zoomDelta: 0.5,            // Smaller steps when zooming
-    doubleClickZoom: true,     // Disable double click zoom to prevent accidental browser zoom
+    doubleClickZoom: true,     // Enable double click zoom
     wheelDebounceTime: 100,    // Debounce wheel events
-    wheelPxPerZoomLevel: 100   // More scrolling needed per zoom level
-});  // Don't set initial view here
+    wheelPxPerZoomLevel: 100,  // More scrolling needed per zoom level
+    closePopupOnClick: true    // Close popups when clicking elsewhere on the map
+});
+
+// Set a default initial view in case bounds calculation fails
+map.setView([56.1575, 10.2085], 14);
 
 // Track if user has manually interacted with the map
 let userHasInteractedWithMap = false;
@@ -54,11 +58,27 @@ styleZoomControls.innerHTML = `
 `;
 document.head.appendChild(styleZoomControls);
 
-// Add ESRI World Imagery (satellite) layer
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+// Ensure the tile layer is added properly
+const tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 18,
     attribution: '© Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-}).addTo(map);
+});
+
+// Add the tile layer to the map
+tileLayer.addTo(map);
+
+// Add a fallback in case the ESRI layer doesn't load
+tileLayer.on('tileerror', function(error) {
+    console.error('Tile layer error, trying OpenStreetMap as fallback');
+    // If ESRI tiles fail, try OpenStreetMap as fallback
+    if (!map._fallbackTileLayerAdded) {
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        map._fallbackTileLayerAdded = true;
+    }
+});
 
 // Improve zoom control touch-friendliness
 const touchZoomStyles = document.createElement('style');
@@ -180,79 +200,65 @@ locations.forEach(location => {
     
     marker.bindPopup(popup);
     
-    // Add event listeners for popup open/close to handle zoom
+    // Add event listeners for popup open WITHOUT auto-zooming
+    // This lets users see a popup without changing view if they prefer
     marker.on('popupopen', function(e) {
-        // Only zoom if we're not already processing a location panel click
-        const processingClick = document.querySelector('.location-item[data-processing="true"]');
-        if (processingClick) return;
-        
-        // Use pan instead of setView for smoother transition when clicking directly on marker
-        if (map.getZoom() < 17) {
-            map.flyTo(location.coords, 17, {
-                duration: 1,
-                easeLinearity: 0.25
-            });
-        } else {
-            map.panTo(location.coords, {
-                duration: 0.8,
-                easeLinearity: 0.5
-            });
+        // Only set data-index attribute on active item if not already done
+        if (!activeLocationItem || activeLocationItem.getAttribute('data-index') !== String(markers.indexOf(marker))) {
+            // Find and highlight corresponding item in the panel
+            const index = markers.indexOf(marker);
+            const locationItem = document.querySelector(`.location-item[data-index="${index}"]`);
+            
+            if (locationItem) {
+                // Update active item
+                if (activeLocationItem) {
+                    activeLocationItem.classList.remove('active');
+                }
+                locationItem.classList.add('active');
+                activeLocationItem = locationItem;
+            }
         }
     });
     
-    // Zoom out when popup is closed to show more context
+    // Do nothing on popup close to maintain current view
     marker.on('popupclose', function(e) {
-        // Do nothing if we're processing a location panel click
-        const processingClick = document.querySelector('.location-item[data-processing="true"]');
-        if (processingClick) return;
-        
-        // Check if user manually closed a popup (e.g., by clicking the X)
-        // We only want to zoom out if the user is intentionally closing a popup,
-        // not when they're navigating between locations
-        
-        // We'll disable the auto zoom-out behavior entirely to prevent the map
-        // from zooming out when clicking between locations
-        
-        // If you still want this functionality, you would need to track if this
-        // popup close was triggered by opening another popup, which is complex
-        
-        // Commented out to maintain zoom level when navigating between locations
-        /*
-        if (map.getZoom() > 15 && map.distance(map.getCenter(), location.coords) < 1000) {
-            map.flyTo(map.getCenter(), 14, {
-                animate: true,
-                duration: 1
-            });
-        }
-        */
+        // No auto zoom-out behavior
     });
     
     markers.push(marker);
 });
 
-// Calculate the center point of all locations for better initial positioning
-function calculateCenterPoint(locations) {
-    if (!locations || locations.length === 0) {
-        return [56.1575, 10.2085]; // Default center of Aarhus
-    }
-    
-    let totalLat = 0;
-    let totalLng = 0;
-    
-    locations.forEach(location => {
-        totalLat += location.coords[0];
-        totalLng += location.coords[1];
-    });
-    
-    return [totalLat / locations.length, totalLng / locations.length];
-}
-
-// Set initial view to show an overview of all locations
-const centerPoint = calculateCenterPoint(locations);
-map.setView(centerPoint, 14, { animate: false });
-
 // Create a bounds object that encompasses all markers
-const bounds = L.latLngBounds(locations.map(loc => loc.coords));
+let bounds;
+try {
+    if (locations && locations.length > 0) {
+        // Create bounds from locations
+        bounds = L.latLngBounds(locations.map(loc => loc.coords));
+        
+        // Validate bounds
+        if (!bounds.isValid()) {
+            console.warn("Created invalid bounds, using default view");
+            bounds = L.latLngBounds([
+                [56.1475, 10.1985],  // Southwest corner
+                [56.1675, 10.2185]   // Northeast corner
+            ]);
+        }
+    } else {
+        // Fallback bounds for central Aarhus
+        console.warn("No locations provided, using default bounds");
+        bounds = L.latLngBounds([
+            [56.1475, 10.1985],  // Southwest corner
+            [56.1675, 10.2185]   // Northeast corner
+        ]);
+    }
+} catch (e) {
+    console.error("Error creating bounds:", e);
+    // Fallback bounds for central Aarhus
+    bounds = L.latLngBounds([
+        [56.1475, 10.1985],  // Southwest corner
+        [56.1675, 10.2185]   // Northeast corner
+    ]);
+}
 
 // Function to check if we're on mobile
 function isMobileDevice() {
@@ -261,19 +267,8 @@ function isMobileDevice() {
            (navigator.userAgent.indexOf('Mobile') !== -1);
 }
 
-// Set initial view based on device type
-if (isMobileDevice()) {
-    // On mobile, use a slightly tighter view with more padding
-    map.fitBounds(bounds.pad(0.2), { 
-        animate: false,
-        // Add more padding on the top to account for the title bar
-        paddingTopLeft: [20, 60],
-        paddingBottomRight: [20, 20]
-    });
-} else {
-    // On desktop, fit all markers with standard padding
-    map.fitBounds(bounds.pad(0.1), { animate: false });
-}
+// Initialize the map view - set to overview mode (no animation on initial load)
+resetMapToOverview(false);
 
 // Populate the location panel with items
 const locationItems = document.getElementById('location-items');
@@ -311,21 +306,46 @@ locations.forEach((location, index) => {
         // Close any open popups first to prevent flickering
         map.closePopup();
         
-        // Adjust animation timing for mobile
-        const animationDuration = isMobileDevice() ? 0.8 : 1.2;
+        // Get the location coordinates
+        const latlng = location.coords;
         
-        // Fly to location with smooth animation and appropriate zoom level
-        map.flyTo(location.coords, 17, {
-            duration: animationDuration,
-            easeLinearity: 0.25
-        });
-        
-        // Open popup after a short delay to let the animation finish
-        setTimeout(() => {
-            markers[index].openPopup();
-            // Reset processing flag
-            locationItem.dataset.processing = 'false';
-        }, isMobileDevice() ? 900 : 1300);
+        if (isMobileDevice()) {
+            // For mobile: Pan to location first (quick), then zoom in (slower)
+            // This gives better visual feedback
+            map.once('moveend', function() {
+                // After panning, zoom in to appropriate level
+                map.setZoom(17, {
+                    animate: true,
+                    duration: 0.5
+                });
+                
+                // Open popup after zoom completes
+                setTimeout(() => {
+                    markers[index].openPopup();
+                    // Reset processing flag
+                    locationItem.dataset.processing = 'false';
+                }, 600);
+            });
+            
+            // First pan to location
+            map.panTo(latlng, {
+                animate: true,
+                duration: 0.5
+            });
+        } else {
+            // For desktop: Fly to location with smooth animation
+            map.flyTo(latlng, 17, {
+                duration: 1.2,
+                easeLinearity: 0.25
+            });
+            
+            // Open popup after animation completes
+            setTimeout(() => {
+                markers[index].openPopup();
+                // Reset processing flag
+                locationItem.dataset.processing = 'false';
+            }, 1300);
+        }
         
         // On mobile, close the panel after selecting a location
         if (window.innerWidth < 768) {
@@ -410,18 +430,13 @@ function handleResize() {
                 map.setView(locations[index].coords, 17, { animate: false });
             }
         } else {
-            // If no active location, adjust overview fit to account for screen orientation
-            map.fitBounds(bounds.pad(0.2), { 
-                animate: false,
-                // Add more padding on the top for the title bar
-                paddingTopLeft: [20, 60],
-                paddingBottomRight: [20, 20]
-            });
+            // If no active location, reset to overview mode
+            resetMapToOverview(false);
         }
     } else {
-        // On larger screens, if no location is selected, ensure proper bounds
+        // On larger screens, if no location is selected, ensure proper overview
         if (!activeLocationItem) {
-            map.fitBounds(bounds.pad(0.1), { animate: false });
+            resetMapToOverview(false);
         }
     }
 }
@@ -473,18 +488,24 @@ map.on('popupopen', function(e) {
     // Get the coordinates of the opened popup
     const coordinates = e.popup._latlng;
     
-    // Don't interfere if a location panel click is in progress
-    const processingClick = document.querySelector('.location-item[data-processing="true"]');
-    if (processingClick) return;
-    
-    // If not already at a good zoom level, adjust the view
-    if (map.getZoom() < 16) {
-        // Use flyTo for smoother animation when zoom level needs to change significantly
-        map.flyTo(coordinates, 17, {
-            duration: 1,
-            easeLinearity: 0.25
-        });
-    }
+    // We no longer automatically zoom in when a popup opens
+    // This allows users to view popups at their current zoom level
+    // If they want to zoom in, they can do so manually or use the location panel
+});
+
+// Add separate click listener for markers to handle tap behavior on mobile
+markers.forEach((marker, index) => {
+    marker.getElement().addEventListener('click', function(e) {
+        // For mobile, we need to make sure the marker is visible in the viewport
+        // without changing the zoom level
+        if (isMobileDevice()) {
+            // Center on marker without zooming
+            map.panTo(marker.getLatLng(), {
+                animate: true,
+                duration: 0.5
+            });
+        }
+    });
 });
 
 // Add a button to return to overview
@@ -504,22 +525,151 @@ returnToOverviewBtn.onAdd = function(map) {
     });
     
     div.onclick = function() {
-        // Clear any active location in the panel
+        // Use our centralized reset function with animation
+        resetMapToOverview(true);
+    };
+    return div;
+};
+returnToOverviewBtn.addTo(map);
+
+// Function to reset the map to overview mode
+function resetMapToOverview(animate = true) {
+    try {
+        // Close any open popups
+        map.closePopup();
+        
+        // Clear any highlighted locations
         if (activeLocationItem) {
             activeLocationItem.classList.remove('active');
             activeLocationItem = null;
         }
         
-        // Close any open popups
-        map.closePopup();
+        // Check if bounds are valid
+        if (!bounds || !bounds.isValid()) {
+            console.warn("Invalid bounds, using default view");
+            map.setView([56.1575, 10.2085], 14, { animate: animate });
+            return;
+        }
+        
+        // Determine appropriate padding and settings based on device
+        const duration = animate ? (isMobileDevice() ? 0.8 : 1) : 0;
+        const padding = isMobileDevice() ? 0.2 : 0.1;
+        
+        // Set options based on device type
+        const options = {
+            animate: animate,
+            duration: duration,
+            easeLinearity: 0.5
+        };
+        
+        // Add padding for mobile
+        if (isMobileDevice()) {
+            options.paddingTopLeft = [20, 60];
+            options.paddingBottomRight = [20, 20];
+        }
         
         // Fit the map to show all markers
-        map.fitBounds(bounds.pad(0.1), {
-            animate: true,
-            duration: 1,
-            easeLinearity: 0.5
-        });
-    };
-    return div;
-};
-returnToOverviewBtn.addTo(map);
+        map.fitBounds(bounds.pad(padding), options);
+    } catch (e) {
+        console.error("Error in resetMapToOverview:", e);
+        // Fallback to default view if anything fails
+        map.setView([56.1575, 10.2085], 14, { animate: animate });
+    }
+}
+
+// After defining bounds, call this function to set initial view
+resetMapToOverview(false);  // false = no animation for initial load
+
+// Make sure map is properly initialized by checking for DOM readiness
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("DOM Content Loaded - Map should be visible");
+    
+    // Force a redraw on the map container
+    const mapContainer = document.getElementById('map');
+    if (mapContainer) {
+        mapContainer.style.display = 'none';
+        setTimeout(() => {
+            mapContainer.style.display = 'block';
+            
+            // Tell Leaflet to update its size
+            map.invalidateSize();
+            
+            // Reset to overview 
+            resetMapToOverview(false);
+        }, 50);
+    }
+});
+
+// Additional fallback for browsers where DOMContentLoaded may have already fired
+window.addEventListener('load', function() {
+    console.log("Window Loaded - Ensuring map is visible");
+    map.invalidateSize();
+    
+    // If map is still blank, try forcing a redraw
+    setTimeout(() => {
+        map.invalidateSize();
+        resetMapToOverview(false);
+    }, 500);
+});
+
+// Add CSS fixes for blank map issues
+const mapFixStyle = document.createElement('style');
+mapFixStyle.innerHTML = `
+    /* Force the map container to have layout and size */
+    #map {
+        height: 100vh !important;
+        width: 100% !important;
+        position: absolute !important;
+        z-index: 1 !important;
+        touch-action: none !important;
+        background-color: #f0f0f0 !important; /* Light background so we see if tiles fail to load */
+    }
+    
+    /* Force Leaflet tiles to be visible */
+    .leaflet-tile-container img {
+        width: 256px !important;
+        height: 256px !important;
+    }
+    
+    /* Fix for IE/Edge */
+    .leaflet-container {
+        min-height: 100vh !important;
+    }
+`;
+document.head.appendChild(mapFixStyle);
+
+// Function to diagnose and fix common map rendering issues
+function fixBlankMap() {
+    console.log("Attempting to fix blank map");
+    
+    // Try different ways to force redraw
+    map.invalidateSize(true);
+    
+    // Try to reset view if the map is still blank
+    resetMapToOverview(false);
+    
+    // Force the map to reconsider its container size
+    const mapContainer = document.getElementById('map');
+    if (mapContainer) {
+        // Temporarily adjust size to force recalculation
+        const oldHeight = mapContainer.style.height;
+        mapContainer.style.height = '100vh';
+        
+        setTimeout(() => {
+            mapContainer.style.height = oldHeight;
+            map.invalidateSize(true);
+            
+            // If tiles are still not loading, try adding OSM as fallback
+            if (!document.querySelector('.leaflet-tile')) {
+                console.log("No tiles found, adding OSM fallback");
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
+            }
+        }, 100);
+    }
+}
+
+// Call our fix functions after a delay
+setTimeout(fixBlankMap, 1000);
